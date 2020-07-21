@@ -2,7 +2,7 @@
 import os
 import subprocess
 
-from arkane.ess import QChemLog
+from ape.qchem import QChemLog
 
 class Job(object):
     def __init__(self, xyz, path, file_name, jobtype, cpus, charge=None, multiplicity=None, level_of_theory=None, basis=None, qmmm_template=None, just_write=False):

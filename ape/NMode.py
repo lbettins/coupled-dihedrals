@@ -215,7 +215,7 @@ class NMode:
         
     def get_true_mins(self, ape_obj):
         from ape.job import Job, record_script
-        from arkane.ess import QChemLog
+        from ape.qchem import QChemLog
         from arkane.common import symbol_by_number
         from arkane.exceptions import LogError
         from ape.InternalCoordinates import getXYZ 

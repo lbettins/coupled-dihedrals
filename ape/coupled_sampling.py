@@ -4,7 +4,7 @@ import numpy as np
 import rmgpy.constants as constants
 import itertools as it
 from arkane.statmech import determine_rotor_symmetry
-from arkane.ess import QChemLog
+from ape.qchem import QChemLog
 from arkane.common import symbol_by_number
 from ape.job import Job
 from ape.InternalCoordinates import get_RedundantCoords, getXYZ
@@ -53,8 +53,8 @@ def coupled_torsional_sampling(ape_obj, tors_modes,
     ## CHECK THIS
     for i,ind in enumerate(torsion_inds):
         qks[i][ind] = 1
-    sample_grid = [list(range(0,int(360+sizes[i]),int(sizes[i])))\
-            for i,mode in enumerate(tors_modes)]
+    #sample_grid = [list(range(0,int(360+sizes[i]),int(sizes[i])))\
+    #        for i,mode in enumerate(tors_modes)]
     sample_grid = [list(range(0,int(360),int(sizes[i])))\
             for i,mode in enumerate(tors_modes)]
 
@@ -62,6 +62,7 @@ def coupled_torsional_sampling(ape_obj, tors_modes,
     Fail_in_torsion_sampling = [False for mode in tors_modes]
     sample_list = []
     #cart_coords = initial_geometry.copy()
+    maxcount = len(list(it.product*sample_grid))
     count = 0
     for x in it.product(*sample_grid):
         sample_list.append(x)
@@ -86,6 +87,7 @@ def coupled_torsional_sampling(ape_obj, tors_modes,
                 equilibrium *= 0
         xyz = getXYZ(ape_obj.symbols, cart_coords)
         xyz_dict[x] = xyz
+        file_name = 'tors_{}'.format(count)
         if not just_write:
             e_elec = get_e_elect(ape_obj, xyz, path, file_name, ape_obj.ncpus)
             if equilibrium:

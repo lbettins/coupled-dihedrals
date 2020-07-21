@@ -20,7 +20,7 @@ import rmgpy.constants as constants
 
 from arkane.common import symbol_by_number
 from arkane.statmech import StatMechJob, determine_rotor_symmetry, is_linear
-from arkane.ess import QChemLog
+from ape.qchem import QChemLog
 
 from arc.species.species import ARCSpecies
 
@@ -30,7 +30,7 @@ from ape.InternalCoordinates import get_RedundantCoords, getXYZ
 from ape.FitPES import cubic_spline_interpolations
 from ape.calcThermo import ThermoJob
 from ape.calcPG import PGJob
-from ape.schro import HO_psi,psi
+from ape.bases import HO_psi,psi
 from ape.NMode import NMode, Well
 from ape.sampling import torsional_sampling, vibrational_sampling
 from ape.coupled_sampling import coupled_torsional_sampling
@@ -141,7 +141,7 @@ class APE(object):
             self.rotors_dict = []
             self.n_rotors = 0
         
-        # Look at arkane.ess for more info / for zeolitic systems, = 3*N_QMATOMS
+        # Look at ape.qchem for more info / for zeolitic systems, = 3*N_QMATOMS
         self.nmode = len(Log.load_mode_freqs()) 
         self.n_vib = self.nmode - self.n_rotors
         # If which modes to run are undefined, run all of them by default

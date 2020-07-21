@@ -9,7 +9,7 @@ import copy
 import numpy as np
 import rmgpy.constants as constants
 from arkane.statmech import determine_rotor_symmetry
-from arkane.ess import QChemLog
+from ape.qchem import QChemLog
 from arkane.common import symbol_by_number
 from ape.job import Job
 from ape.InternalCoordinates import get_RedundantCoords, getXYZ
