@@ -15,12 +15,12 @@ import csv
 import numpy as np
 import subprocess
 import copy
+from scipy import integrate
 
 import rmgpy.constants as constants
 
 from arkane.common import symbol_by_number
-from arkane.statmech import StatMechJob, determine_rotor_symmetry, is_linear
-from ape.qchem import QChemLog
+from arkane.statmech import is_linear
 
 from arc.species.species import ARCSpecies
 
@@ -34,10 +34,11 @@ from ape.bases import HO_psi,psi
 from ape.NMode import NMode, Well
 from ape.sampling import torsional_sampling, vibrational_sampling
 from ape.coupled_sampling import coupled_torsional_sampling
+from ape.qchem import QChemLog
+from ape.basic_units import radians, degrees
+from ape.plotting.torsional_coupling import plot as cmtplot
 
 import matplotlib
-from ape.basic_units import radians, degrees
-from scipy import integrate
 
 class APE(object):
     """
@@ -141,7 +142,8 @@ class APE(object):
             self.rotors_dict = []
             self.n_rotors = 0
         
-        # Look at ape.qchem for more info / for zeolitic systems, = 3*N_QMATOMS
+        # Look at ape.qchem for more info 
+        # for zeolitic systems, = 3*N_QMATOMS
         self.nmode = len(Log.load_mode_freqs()) 
         self.n_vib = self.nmode - self.n_rotors
         # If which modes to run are undefined, run all of them by default
@@ -194,10 +196,10 @@ class APE(object):
                     self.conformer.mass.value_si, self.n_vib)
             print('Frequencies(cm-1) from projected Hessian:',vib_freq)
 
-            tors_modes = [] 
+            self.tors_modes = [] 
             for i in range(self.n_rotors):
                 mode = i+1
-                tors_modes.append(mode) 
+                self.tors_modes.append(mode) 
                 if self.protocol == 'UMVT':
                     if i+1 not in self.which_modes:
                         continue
@@ -209,12 +211,17 @@ class APE(object):
                     energy_dict[mode] = modal_edict
                     mode_dict[mode] = modal_mdict
             if self.protocol == 'CMT':
-                scan_res = 36 
+                n_dihedrals = len(self.tors_modes)
+                scan_res = 10 if n_dihedrals == 1 \
+                        else 18 if n_dihedrals == 2 \
+                        else 36 if n_dihedrals == 3 \
+                        else 90
                 modal_xyzdict, modal_edict, modal_mdict=\
-                        coupled_torsional_sampling(self, tors_modes,
+                        coupled_torsional_sampling(self, self.tors_modes,
                                 rotor, path, scan_res, thresh,
                                 just_write=self.just_write)
-                for mode in tors_modes:
+                # All torsional modes set to identical vectorized dicts
+                for mode in self.tors_modes:
                     xyz_dict[mode] = modal_xyzdict
                     energy_dict[mode] = modal_edict
                     mode_dict[mode] = modal_mdict
@@ -318,9 +325,19 @@ class APE(object):
         xyz_dict, energy_dict, mode_dict = self.sampling()
         if self.just_write:
             return
-        #Solve SE of 1-D PES and calculate E S G Cp
-        polynomial_dict = cubic_spline_interpolations(energy_dict,mode_dict)
-        modes = dicts_to_NModes(mode_dict, energy_dict, xyz_dict, ape_obj=self)
+        modes = dicts_to_NModes(mode_dict, energy_dict, xyz_dict, 
+                ape_obj=self)
+        if not self.protocol == "CMT":
+            #Solve SE of 1-D PES and calculate E S G Cp
+            polynomial_dict = cubic_spline_interpolations(energy_dict,mode_dict)
+        else:
+            for mode in modes:
+                if mode.is_tors():
+                    x = mode.get_x_sample()
+                    V = mode.get_v_sample()
+                    print(V)
+                    cmtplot(x,V)
+                    return
         thermo = ThermoJob(self, polynomial_dict, mode_dict, energy_dict, xyz_dict, T=298.15, P=100000, nmodes=modes)
         thermo.calcThermo(print_HOhf_result=True, zpe_of_Hohf=self.zpe)
 
@@ -572,30 +589,46 @@ def SolvEig(hessian, mass, n_vib):
 def dict_to_NMode(mode, m_dict, e_dict, xyz_dict, 
         rotors_dict=[], ape_obj=None):
     try:
-       m_dict[mode]['v_um']
-    except KeyError:
-        m_dict[mode]['v_um'] = 0
-        m_dict[mode]['zpe_um'] = 0
-        pass
-
-    samples = sorted(e_dict[mode].keys())
-    step = m_dict[mode]['step_size']
-    xvals = [sample*step for sample in samples] #in rads
-    vvals = [e_dict[mode][sample] for sample in samples] #in Hartree
-    if xyz_dict:
-        geoms = [xyz_dict[mode][sample] for sample in samples]
-    else:
-        geoms = None
-    try:
-        v_ho = m_dict[mode]['v_ho']
         v_um = m_dict[mode]['v_um']
         zpe_um = m_dict[mode]['zpe_um']
         min_elect = m_dict[mode]['min_elect']
     except KeyError:
-        v_ho = 0
+        try:
+            v_ho = m_dict[mode]['v_ho']
+        except KeyError:
+            v_ho = 0
+            pass
+        m_dict[mode]['v_um'] = 0
+        m_dict[mode]['zpe_um'] = 0
         v_um = 0
         zpe_um = 0
         min_elect = 0
+        pass
+
+    step = m_dict[mode]['step_size']
+    if ape_obj.protocol == 'UMVT' or ape_obj.protocol == 'UMN':
+        samples = sorted(e_dict[mode].keys())
+        xvals = [sample*step for sample in samples] #in rads
+        vvals = [e_dict[mode][sample] for sample in samples] #in Hartree
+        if xyz_dict:
+            geoms = [xyz_dict[mode][sample] for sample in samples]
+        else:
+            geoms = None
+
+    elif ape_obj.protocol == 'CMT':
+        # Basically do the same construction,
+        # but project n samples onto N 1d dihedral axes 
+        # Thus samples is n*N rather than n^N
+        # i.e. N*1-d rather than N-d
+        nsamples = m_dict[mode]['nsamples']
+        samples = np.array([np.array(range(0,n)) \
+                for n in nsamples])
+        xvals = np.array([sample_array*step[i] \
+                for i,sample_array in enumerate(samples)])
+        vvals = e_dict[ape_obj.tors_modes[0]]\
+                [ape_obj.tors_modes[0]]# Energy grid n^N
+        #print(vvals)
+        geoms = None #TODO
     is_tors = (True if m_dict[mode]['mode'] == 'tors' else False)
     if is_tors:
         I = m_dict[mode]['M']   # amu * angstrom^2
@@ -628,7 +661,13 @@ def dicts_to_NModes(m_dict, e_dict, xyz_dict,
         rotors_dict=[], ape_obj=None):
     # Get array of NMode types for easy use in PG, MCHO
     modes = []
+    continue_toggle = False
     for mode in sorted(m_dict.keys()):
+        if continue_toggle and m_dict[mode]['mode'] == 'tors':
+            modes[0].set_mode_number(mode)
+            continue
         modes.append(dict_to_NMode(mode,m_dict,e_dict,xyz_dict,
             rotors_dict,ape_obj))
+        if ape_obj.protocol == 'CMT':
+            continue_toggle = True   # Only need one NMode object w/vectorized quantities
     return modes

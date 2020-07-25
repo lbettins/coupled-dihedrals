@@ -18,7 +18,7 @@ class NMode:
             tors=False, scan=None, v_ho=None, v_um=None, zpe_um=None,
             I=None, mu=None, k=None, min_elec=None, sigma=None, eig=None, eigv=None, H=None):
         self.n = n  #Mode #
-        if not isinstance(v, list):
+        if isinstance(v, int):
             self.v_sample = [v]  # Equilibrium position is referenced at 0
             self.x_sample = [x]  # ^
             self.sample_geometries = [sample_geoms]  # ^^ These are parallel!
@@ -46,6 +46,7 @@ class NMode:
         self.H = None
         if v_ho:
             print(v_ho)
+            v_ho = np.array(v_ho)
             self.zpe_ho = constants.h*(v_ho*constants.c*100)*\
                             constants.Na/2.0/4184 #in kcal/mol
         else:
@@ -57,6 +58,17 @@ class NMode:
         self.k = k      #[1/s^2]
         if self.I and self.mu:
             raise ValueError("I and mu exist simultaneously!")
+
+    def set_mode_number(self,n):
+        if self.n and type(self.n) is int:
+            self.n = [self.n].append(n)
+        elif self.n and type(self.n) is list:
+            if n not in self.n:
+                self.n.append(n)
+            else:
+                raise ValueError("NMode already indexed at",n)
+        else:
+            self.n = n
 
     def get_mode_number(self):
         """

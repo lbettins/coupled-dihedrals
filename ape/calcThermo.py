@@ -8,10 +8,10 @@ from copy import deepcopy
 import rmgpy.constants as constants
 
 from ape.calcPG import PGJob
-from ape.calcMCHO import MCHOJob
+#from ape.calcMCHO import MCHOJob
 from ape.FitPES import from_sampling_result, cubic_spline_interpolations
 from ape.schrodinger import SetAnharmonicH #, SetAnharmonicH2
-from ape.schro import ImprovedH
+#from ape.schro import ImprovedH
 
 class ThermoJob(object):
     """

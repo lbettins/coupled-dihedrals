@@ -30,6 +30,7 @@
 """
 Arkane QChem module
 Used to parse QChem output files
+Edited by lbettins
 """
 
 import math

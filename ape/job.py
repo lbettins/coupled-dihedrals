@@ -58,7 +58,7 @@ class Job(object):
     
     def submit(self):
         if os.path.exists(self.output_path):
-            #print('{} exists, so this calculation is passed !'.format(self.output_path))
+            print('{} exists, so this calculation is passed !'.format(self.output_path))
             pass
         else:
             proc = subprocess.Popen(['qchem -nt {cpus} {input_path} {output_path}'.format(cpus=self.cpus,input_path=self.input_path,output_path=self.output_path)],shell=True)

@@ -22,14 +22,6 @@ def get_e_elect(ape_obj, xyz, path, file_name, cpus):
             / (constants.E_h * constants.Na) # in Hartree/particle
     return e_elect
 
-def write_e_elect(ape_obj, xyz, path, file_name, cpus, just_write=False):
-    job = Job(xyz, path, file_name,jobtype='sp', cpus=cpus,
-            charge=ape_obj.charge, multiplicity=ape_obj.multiplicity,
-            level_of_theory=ape_obj.level_of_theory, basis=ape_obj.basis,
-            qmmm_template=ape_obj.qmmm_template, just_write=just_write)
-    job.write_input_file() 
-    return job
-
 def torsional_sampling(ape_obj, mode, 
         rotor, path, scan_res=10, thresh=0.05, just_write=False):
     xyz_dict = {}
@@ -230,4 +222,20 @@ def write_displaced_geoms(mode, path, natom, mode_dict, xyz_dict):
             content = record_script.format(natom=natom, sample=sample, 
                     e_elect=0, xyz=xyz_dict[sample])
             f.write(content)
+        f.close()
+
+def write_e_elect(ape_obj, xyz, path, file_name, cpus, just_write=False):
+    job = Job(xyz, path, file_name,jobtype='sp', cpus=cpus,
+            charge=ape_obj.charge, multiplicity=ape_obj.multiplicity,
+            level_of_theory=ape_obj.level_of_theory, basis=ape_obj.basis,
+            qmmm_template=ape_obj.qmmm_template, just_write=just_write)
+    job.write_input_file() 
+    return job
+
+def write_specs(ape_obj, count, path):
+    filename=os.path.join(path,'specs')
+    with open(filename,'w') as f:
+        f.write(ape_obj.name+'\n')
+        f.write('-array\t{start}-{end}\n'.format(start=0,end=count))
+        f.write('-nt\t{nt}'.format(nt=ape_obj.ncpus))
         f.close()
