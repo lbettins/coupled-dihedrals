@@ -29,8 +29,6 @@ def coupled_torsional_sampling(ape_obj, tors_modes,
             for mode in tors_modes]
     step_sizes = [2*np.pi / nsamples[i]\
             for i,mode in enumerate(tors_modes)]#Rads
-    sizes = [int(360/(nsamples[i]))\
-            for i,mode in enumerate(tors_modes)]  # Degrees
     projected_freqs = [rotor.get_projected_out_freq(scan)\
             for scan in scans]
 
@@ -47,49 +45,76 @@ def coupled_torsional_sampling(ape_obj, tors_modes,
     mode_dict['nsamples'] = nsamples
 
     n_rotors = len(ape_obj.rotors_dict)
-    internal = copy.deepcopy(ape_obj.internal)
-    scan_indices = internal.B_indices[-n_rotors:]
-    torsion_inds = [len(internal.B_indices) - n_rotors +\
+
+    # Create for each mode a copy of the internal object
+    # For speed in iterating over dihedral space
+    internals = [copy.deepcopy(ape_obj.internal)\
+            for mode in tors_modes]
+
+    # Only need to call one internal object
+    # Rn they are all identical in the array
+    scan_indices = internals[0].B_indices[-n_rotors:]
+    torsion_inds = [len(internals[0].B_indices) - n_rotors +\
             scan_indices.index([ind-1 for ind in scan]) \
             for scan in scans]
-
-    B = internal.B
+    B = internals[0].B
     Bt_inv = np.linalg.pinv(B.dot(B.T)).dot(B)
     nrow = B.shape[0]
+
+    # Finite displacement identity vector for each torsion
     qks = [np.zeros(nrow, dtype=int) for mode in tors_modes]
     for i,ind in enumerate(torsion_inds):
         qks[i][ind] = 1
-    initial_geometry = ape_obj.cart_coords
+    
+    # We modify the geometries alongside the internal objects
+    # Create them as a parallel structure for each dihedral
+    geom_coords = [copy.deepcopy(ape_obj.cart_coords) \
+            for tors in tors_modes]
     Fail_in_torsion_sampling = [False for mode in tors_modes]
 
     sample_list = []
     xyz_list = []
     count = 0
+    equilibrium = 1
+    rev_ind = 1 # Index for calling last relevant geometry
 
+    # Iteration variables
     energy_grid = np.zeros(shape=(nsamples),dtype=float)
     sample_grid = np.array([np.array(range(0,nsamples[i])) \
             for i,mode in enumerate(tors_modes)])
-    prev_x = [-1 for mode in enumerate(tors_modes)]
+
+    # Function for returning step displacement
+    def finite_step(x, internal, qks, dxs, i, cart_coords):
+        """
+        For a list of steadily increasing coordinates in ND
+        internal = internal object
+        x = current position in dihedral space
+        qk = displacement vector in internal coordinates
+        dx = finite displacement size (dx)
+        i = coordinate i.e. ith dihedral angle to update
+        """
+        if x[i] is x[0] and x[i] == 0: # Init condition
+            return cart_coords[i]
+        elif x[i] == 0: # Take a finite step along prev geometric coordinate
+            cart_coords[i-1] = finite_step(x, internal, qks, dxs, i-1, cart_coords)
+            internal[i] = copy.copy(internal[i-1])
+            return cart_coords[i-1]
+        else:   # Exit condition -- take a finite step 
+            cart_coords[i] = cart_coords[i] + internal[i].transform_int_step(
+                    (qks[i]*dxs[i]).reshape(-1,))
+            return cart_coords[i]
+
+    # Now iterate
     for x in it.product(*sample_grid):
         """
+        Iterate over all samples in dihedral space.
+        Samples are predefined, and steps are taken based on step_sizes
         x is a vector of dihedral N angles {x0, x1, x2, ..., x(N-1)}
         """
         print(count,*x)
-        cart_coords = initial_geometry.copy()
-        internal1 = copy.copy(internal) # Reset internal object
         file_name = 'tors'
-        equilibrium = 1
-        for i,xi in enumerate(x):
-            """
-            For each ith dihedral angle xi, calculate the geometry
-            """
-            # This is very naive
-            for n in range(0,xi):
-                cart_coords += internal1.transform_int_step(
-                        (qks[i]*step_sizes[i]).reshape(-1,))
-            equilibrium *= 1 if xi==0 else 0
-
-        xyz = getXYZ(ape_obj.symbols, cart_coords)
+        geom_coords[-1] = finite_step(x, internals, qks, step_sizes, -1, geom_coords)
+        xyz = getXYZ(ape_obj.symbols, geom_coords[-1])
         xyz_dict[tuple(x)] = xyz
 
         file_name = 'tors_{}'.format(count)
@@ -99,6 +124,7 @@ def coupled_torsional_sampling(ape_obj, tors_modes,
                 energy_dict[tuple(x)] = 0 
                 min_elect = e_elec
                 mode_dict['min_elect'] = min_elect
+                equilibrium *= 0
             else:
                 energy_dict[tuple(x)] = e_elec - min_elect
             # Add energy to grid
@@ -113,7 +139,6 @@ def coupled_torsional_sampling(ape_obj, tors_modes,
             job = write_e_elect(ape_obj, xyz, 
                     path, file_name, ape_obj.ncpus, just_write)
         
-        prev_x = x  # Use this for determining whadd
         count += 1
         
     # Clean it up and prepare to return
