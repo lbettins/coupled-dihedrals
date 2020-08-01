@@ -28,6 +28,11 @@ def HO_psi(n,x,a):
     return prefactor * fn
 
 def psi(n,theta,I):
+    """
+    Fourier basis function
+    q [=] sqrt(amu*angstrom^2) * rad
+    L [=] sqrt(amu*angstrom^2)
+    """
     L = np.pi*np.sqrt(I)
     q = np.sqrt(I)*theta
     if n == 0:
@@ -40,12 +45,17 @@ def psi(n,theta,I):
         return 1.0/np.sqrt(L) * np.sin(kn*q)
 
 def Hmn(m, n, nmode):
+    """
+    Simpler way to visualize calculations of Hamiltonian matrix,
+    but not fast. This function is NOT used.
+    """
     hbar1 = constants.hbar / constants.E_h # in hartree*s
     hbar2 = constants.hbar * 10 ** 20 / constants.amu # in amu*angstrom^2/s
 
     result = 0
     k = nmode.get_k()   # 1/s^2
     if nmode.is_tors():
+        # INCOMPLETE
         # use fourier basis function
         I = nmode.get_I() # in amu*angstrom^2
         step_size = nmode.get_step_size() 

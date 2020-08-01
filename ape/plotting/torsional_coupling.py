@@ -1,11 +1,7 @@
-# -*- coding: utf-8 -*- 
+#-*- coding: utf-8 -*- 
 
 """
 Visualization of torsional coupling energies.
-The inclusion of x_ and S_ as global variables excludes
-the possibility of visualizing torsional probabilities.
-
-See another module for this functionality.
 """
 
 import numpy as np
@@ -119,7 +115,7 @@ def generate_surface(x, z, nperiods=2, stype='potential'):
         x,z = augment_with_periodic_bc(x, z, 2*np.pi)
         X,Y = np.meshgrid(*x)
         rbfi = Rbf(X, Y, z,function='cubic')  # radial basis function interpolator instance
-        rbfi = Rbf(X,Y,z)
+        #rbfi = Rbf(X,Y,z)
         P_ = rbfi
     if stype == 'potential':
         return x_,S_

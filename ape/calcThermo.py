@@ -238,9 +238,9 @@ class ThermoJob(object):
             ####### THIS SECTION IS FOR MCHO THERMO OF TORSIONS ONLY #######
             ################################################################ 
             print("\n\t********** Mode ",nmode.get_mode_number()," **********\n\n")
-            if nmode.is_tors():
-                mchoThermo = MCHOJob(nmode,self.T)
-                Q_int_mcho *= mchoThermo.calcMCHO()
+            #if nmode.is_tors():
+                #mchoThermo = MCHOJob(nmode,self.T)
+                #Q_int_mcho *= mchoThermo.calcMCHO()
            #     e0_, E_, S_, F_, Q_, Cv_ = mchoThermo.calcMCHO()
            #     E0_mcho += e0_
            #     E_int_mcho += E_

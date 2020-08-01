@@ -36,6 +36,7 @@ from ape.sampling import torsional_sampling, vibrational_sampling
 from ape.coupled_sampling import coupled_torsional_sampling
 from ape.qchem import QChemLog
 from ape.basic_units import radians, degrees
+from ape.MC.metropolis import Metropolis
 from ape.plotting.torsional_coupling import plot as cmtplot
 
 import matplotlib
@@ -339,9 +340,24 @@ class APE(object):
                     cmtplot(x,V)
                     return
         thermo = ThermoJob(self, polynomial_dict, mode_dict, energy_dict, xyz_dict, T=298.15, P=100000, nmodes=modes)
-        thermo.calcThermo(print_HOhf_result=True, zpe_of_Hohf=self.zpe)
-
-
+        #thermo.calcThermo(print_HOhf_result=True, zpe_of_Hohf=self.zpe)
+        
+        f = []
+        if len(self.tors_modes) == 2:
+            print("HI")
+            for mode in modes:
+                if mode.is_tors():
+                    mode.spline(1000)
+                    f.append(mode.get_spline_fn())
+            V = lambda *x: f[0](x[0]) + f[1](x[1])
+            def V(X):
+                return f[0](X[0]) + f[1](X[1])
+            mcjob = Metropolis(E=V,Xi=(0,0),period=2*np.pi)
+            mcjob.run()
+            mcjob.plot2d()
+            result = np.array(mcjob.result)
+            print(result[:,0],result[:,1])
+        return
         #### PLOTTING TAKES PLACE BELOW ####
         import matplotlib.pyplot as plt
         matplotlib.use('MacOSX')
